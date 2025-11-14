@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多模态图像检索系统 | MultiModal Search</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#10B981',
+                        dark: '#1E293B',
+                        light: '#F8FAFC'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .gradient-bg {
+                background: linear-gradient(135deg, #3B82F6 0%, #10B981 100%);
+            }
+            .card-hover {
+                transition: all 0.3s ease;
+            }
+            .card-hover:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            }
+            .search-input {
+                transition: all 0.3s ease;
+            }
+            .search-input:focus {
+                box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
+    <!-- 导航栏 -->
+    <nav id="navbar" class="fixed top-0 left-0 right-0 bg-white/90 backdrop-blur-sm shadow-sm py-3 px-4 z-50 transition-all">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <i class="fa fa-search text-primary text-xl"></i>
+                <h1 class="text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">多模态图像检索</h1>
+            </div>
+            
+            <div class="hidden md:flex items-center space-x-1">
+                <a href="/" class="text-primary font-medium">
+                    <i class="fa fa-search mr-1"></i>检索
+                </a>
+                <a href="/upload" class="text-gray-600 hover:text-primary transition-colors">
+                    <i class="fa fa-upload mr-1"></i>上传
+                </a>
+                <a href="/database" class="text-gray-600 hover:text-primary transition-colors">
+                    <i class="fa fa-database mr-1"></i>数据库
+                </a>
+            </div>
+            
+            <button id="mobile-menu-button" class="md:hidden text-gray-600">
+                <i class="fa fa-bars text-xl"></i>
+            </button>
+        </div>
+        
+        <!-- 移动端菜单 -->
+        <div id="mobile-menu" class="md:hidden hidden bg-white rounded-lg shadow-lg mt-2 py-2 absolute top-full left-4 right-4 z-50">
+            <a href="/" class="block px-4 py-2 text-gray-800 hover:bg-gray-100">首页</a>
+            <a href="/upload" class="block px-4 py-2 text-gray-800 hover:bg-gray-100">上传图像</a>
+            <a href="/database" class="block px-4 py-2 text-gray-800 hover:bg-gray-100">向量库查看</a>
+        </div>
+    </nav>
+
+    <!-- 主要内容 -->
+    <main class="flex-grow pt-20 pb-12">
+        <!-- 标题区域 -->
+        <section class="max-w-7xl mx-auto px-4 mb-12 text-center">
+            <h2 class="text-4xl font-bold text-gray-800 mb-4">多模态图像检索系统</h2>
+            <p class="text-xl text-gray-600 max-w-3xl mx-auto">基于 CLIP 和 Milvus 的智能图像检索系统，支持文本搜图像和图像搜文本</p>
+        </section>
+
+        <!-- 检索模式切换 -->
+        <section class="max-w-7xl mx-auto px-4 mb-8">
+            <div class="flex justify-center">
+                <div class="inline-flex bg-gray-100 rounded-xl p-1">
+                    <button id="text-to-image-tab" class="px-6 py-3 rounded-lg font-medium bg-primary text-white transition-all">
+                        <i class="fa fa-file-text-o mr-2"></i> 文本搜图像
+                    </button>
+                    <button id="image-to-text-tab" class="px-6 py-3 rounded-lg font-medium text-gray-600 hover:bg-gray-100 transition-all">
+                        <i class="fa fa-image mr-2"></i> 图像搜文本
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 搜索区域 -->
+        <section class="max-w-4xl mx-auto px-4 mb-12">
+            <!-- 文本到图像检索 -->
+            <div id="text-to-image-search" class="bg-white rounded-xl shadow-md p-6 transition-all">
+                <div class="flex flex-col md:flex-row gap-4">
+                    <div class="flex-grow">
+                        <input type="text" id="text-query" placeholder="请输入搜索关键词，例如：夕阳下的山脉、城市夜景..." class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary search-input">
+                    </div>
+                    <button id="text-search-btn" class="gradient-bg text-white px-6 py-3 rounded-lg font-medium shadow-md hover:shadow-lg transition-all flex items-center justify-center">
+                        <i class="fa fa-search mr-2"></i> 搜索
+                    </button>
+                </div>
+                <div class="mt-4 flex flex-wrap gap-2">
+                    <span class="text-sm text-gray-500">热门搜索：</span>
+                    <button class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition-colors">夕阳下的山脉</button>
+                    <button class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition-colors">城市夜景</button>
+                    <button class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition-colors">奔跑的小狗</button>
+                    <button class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition-colors">盛开的花朵</button>
+                </div>
+            </div>
+
+            <!-- 图像到文本检索 -->
+            <div id="image-to-text-search" class="hidden bg-white rounded-xl shadow-md p-6 transition-all">
+                <div class="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-8 hover:border-primary/50 transition-colors cursor-pointer" id="image-upload-area">
+                    <i class="fa fa-cloud-upload text-4xl text-gray-400 mb-3"></i>
+                    <p class="text-gray-500 mb-2 text-center">点击或拖拽图像到此处上传</p>
+                    <p class="text-xs text-gray-400">支持 JPG, PNG 格式，文件大小不超过 5MB</p>
+                    <input type="file" id="image-upload" accept="image/*" class="hidden">
+                </div>
+                <div id="preview-container" class="hidden mt-4 flex justify-center">
+                    <img id="image-preview" src="" alt="预览图" class="max-h-64 rounded-lg shadow-md">
+                </div>
+                <div class="mt-6 flex justify-center">
+                    <button id="image-search-btn" class="gradient-bg text-white px-6 py-3 rounded-lg font-medium shadow-md hover:shadow-lg transition-all flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        <i class="fa fa-search mr-2"></i> 搜索相似文本
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 加载状态 -->
+        <div id="loading-indicator" class="hidden flex justify-center items-center py-10">
+            <div class="flex flex-col items-center">
+                <div class="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                <p class="mt-4 text-gray-600">正在检索相关内容...</p>
+            </div>
+        </div>
+
+        <!-- 结果区域 -->
+        <section id="results-section" class="max-w-7xl mx-auto px-4 mb-12 hidden">
+            <div class="mb-6 flex justify-between items-center">
+                <h3 class="text-xl font-bold text-gray-800" id="results-title">相关图像结果</h3>
+                <div class="flex items-center space-x-2">
+                    <span class="text-sm text-gray-500">排序方式：</span>
+                    <select class="text-sm border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-primary">
+                        <option>相关性</option>
+                        <option>最新</option>
+                        <option>最热</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- 结果网格 -->
+            <div id="results-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                <!-- 结果项将通过JavaScript动态添加 -->
+            </div>
+
+            <!-- 加载更多 -->
+            <div class="mt-10 text-center">
+                <button id="load-more-btn" class="bg-white border border-primary text-primary hover:bg-primary/5 px-6 py-2 rounded-lg font-medium transition-all">
+                    加载更多 <i class="fa fa-chevron-down ml-1"></i>
+                </button>
+            </div>
+        </section>
+
+        <!-- 空状态 -->
+        <section id="empty-state" class="hidden max-w-7xl mx-auto px-4 text-center py-16">
+            <div class="max-w-md mx-auto">
+                <i class="fa fa-search text-6xl text-gray-300 mb-4"></i>
+                <h3 class="text-xl font-semibold text-gray-700 mb-2">暂无搜索结果</h3>
+                <p class="text-gray-500">请尝试使用不同的关键词或图像进行搜索</p>
+            </div>
+        </section>
+    </main>
+
+    <!-- 底部 -->
+    <footer class="bg-gray-800 text-white py-8">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div>
+                    <h3 class="text-xl font-bold mb-4">多模态图像检索系统</h3>
+                    <p class="text-gray-400">基于 CLIP 和 Milvus 的智能图像检索系统，支持文本搜图像和图像搜文本。</p>
+                </div>
+                <div>
+                    <h3 class="text-xl font-bold mb-4">功能特性</h3>
+                    <ul class="space-y-2 text-gray-400">
+                        <li><i class="fas fa-check-circle mr-2 text-green-400"></i> 文本搜图像</li>
+                        <li><i class="fas fa-check-circle mr-2 text-green-400"></i> 图像搜文本</li>
+                        <li><i class="fas fa-check-circle mr-2 text-green-400"></i> 多模态特征提取</li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 class="text-xl font-bold mb-4">快速链接</h3>
+                    <ul class="space-y-2 text-gray-400">
+                        <li><a href="/" class="hover:text-white transition-colors">首页</a></li>
+                        <li><a href="/upload" class="hover:text-white transition-colors">上传图像</a></li>
+                        <li><a href="/database" class="hover:text-white transition-colors">向量库查看</a></li>
+                        <li><a href="#" id="about-link-footer" class="hover:text-white transition-colors">关于我们</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="border-t border-gray-700 mt-8 pt-6 text-center text-gray-400">
+                <p>&copy; 2025 多模态图像检索系统. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // 导航栏滚动效果
+        window.addEventListener('scroll', function() {
+            const navbar = document.getElementById('navbar');
+            if (window.scrollY > 10) {
+                navbar.classList.add('py-2', 'shadow');
+                navbar.classList.remove('py-3', 'shadow-sm');
+            } else {
+                navbar.classList.add('py-3', 'shadow-sm');
+                navbar.classList.remove('py-2', 'shadow');
+            }
+        });
+
+        // 移动端菜单切换
+        document.getElementById('mobile-menu-button').addEventListener('click', function() {
+            const mobileMenu = document.getElementById('mobile-menu');
+            mobileMenu.classList.toggle('hidden');
+        });
+
+        // 检索模式切换
+        const textToImageTab = document.getElementById('text-to-image-tab');
+        const imageToTextTab = document.getElementById('image-to-text-tab');
+        const textToImageSearch = document.getElementById('text-to-image-search');
+        const imageToTextSearch = document.getElementById('image-to-text-search');
+        const resultsTitle = document.getElementById('results-title');
+
+        textToImageTab.addEventListener('click', function() {
+            // 切换标签样式
+            textToImageTab.classList.add('bg-primary', 'text-white');
+            textToImageTab.classList.remove('text-gray-600', 'hover:bg-gray-100');
+            imageToTextTab.classList.add('text-gray-600', 'hover:bg-gray-100');
+            imageToTextTab.classList.remove('bg-primary', 'text-white');
+            
+            // 切换内容区域
+            textToImageSearch.classList.remove('hidden');
+            imageToTextSearch.classList.add('hidden');
+            
+            // 更新结果标题
+            resultsTitle.textContent = '相关图像结果';
+        });
+
+        imageToTextTab.addEventListener('click', function() {
+            // 切换标签样式
+            imageToTextTab.classList.add('bg-primary', 'text-white');
+            imageToTextTab.classList.remove('text-gray-600', 'hover:bg-gray-100');
+            textToImageTab.classList.add('text-gray-600', 'hover:bg-gray-100');
+            textToImageTab.classList.remove('bg-primary', 'text-white');
+            
+            // 切换内容区域
+            imageToTextSearch.classList.remove('hidden');
+            textToImageSearch.classList.add('hidden');
+            
+            // 更新结果标题
+            resultsTitle.textContent = '相关文本描述';
+        });
+
+        // 图像上传功能
+        const imageUploadArea = document.getElementById('image-upload-area');
+        const imageUpload = document.getElementById('image-upload');
+        const imagePreview = document.getElementById('image-preview');
+        const previewContainer = document.getElementById('preview-container');
+        const imageSearchBtn = document.getElementById('image-search-btn');
+
+        imageUploadArea.addEventListener('click', function() {
+            imageUpload.click();
+        });
+
+        imageUpload.addEventListener('change', function(e) {
+            if (e.target.files && e.target.files[0]) {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                
+                reader.onload = function(event) {
+                    imagePreview.src = event.target.result;
+                    previewContainer.classList.remove('hidden');
+                    imageSearchBtn.disabled = false;
+                }
+                
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // 拖拽上传
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            imageUploadArea.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            imageUploadArea.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            imageUploadArea.addEventListener(eventName, unhighlight, false);
+        });
+
+        function highlight() {
+            imageUploadArea.classList.add('border-primary', 'bg-blue-50');
+        }
+
+        function unhighlight() {
+            imageUploadArea.classList.remove('border-primary', 'bg-blue-50');
+        }
+
+        imageUploadArea.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const file = dt.files[0];
+            if (file && file.type.startsWith('image/')) {
+                imageUpload.files = dt.files;
+                
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    imagePreview.src = event.target.result;
+                    previewContainer.classList.remove('hidden');
+                    imageSearchBtn.disabled = false;
+                }
+                reader.readAsDataURL(file);
+            }
+        }
+
+        // 热门搜索点击事件
+        document.querySelectorAll('#text-to-image-search .bg-gray-100').forEach(button => {
+            button.addEventListener('click', function() {
+                document.getElementById('text-query').value = this.textContent;
+            });
+        });
+
+        // 文本搜索
+        document.getElementById('text-search-btn').addEventListener('click', function() {
+            const query = document.getElementById('text-query').value.trim();
+            if (query) {
+                searchByText(query);
+            } else {
+                alert('请输入搜索关键词');
+            }
+        });
+
+        document.getElementById('text-query').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                const query = this.value.trim();
+                if (query) {
+                    searchByText(query);
+                }
+            }
+        });
+
+        // 图像搜索
+        imageSearchBtn.addEventListener('click', function() {
+            if (imageUpload.files.length > 0) {
+                searchByImage(imageUpload.files[0]);
+            }
+        });
+
+        // 搜索函数
+        function searchByText(query) {
+            showLoading();
+            
+            const formData = new FormData();
+            formData.append('query', query);
+            
+            fetch('/search/text', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                hideLoading();
+                if (data.error) {
+                    showError(data.error);
+                } else {
+                    displayResults(data.results);
+                }
+            })
+            .catch(error => {
+                hideLoading();
+                showError('搜索失败: ' + error.message);
+            });
+        }
+
+        function searchByImage(file) {
+            showLoading();
+            
+            const formData = new FormData();
+            formData.append('image', file);
+            
+            fetch('/search/image', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                hideLoading();
+                if (data.error) {
+                    showError(data.error);
+                } else {
+                    displayResults(data.results);
+                }
+            })
+            .catch(error => {
+                hideLoading();
+                showError('搜索失败: ' + error.message);
+            });
+        }
+
+        // 显示/隐藏加载状态
+        function showLoading() {
+            document.getElementById('loading-indicator').classList.remove('hidden');
+            document.getElementById('results-section').classList.add('hidden');
+            document.getElementById('empty-state').classList.add('hidden');
+        }
+
+        function hideLoading() {
+            document.getElementById('loading-indicator').classList.add('hidden');
+        }
+
+        // 显示错误
+        function showError(message) {
+            document.getElementById('empty-state').classList.remove('hidden');
+            document.querySelector('#empty-state h3').textContent = '搜索出错';
+            document.querySelector('#empty-state p').textContent = message;
+        }
+
+        // 显示结果
+        function displayResults(results) {
+            const resultsGrid = document.getElementById('results-grid');
+            const resultsSection = document.getElementById('results-section');
+            const emptyState = document.getElementById('empty-state');
+            
+            if (!results || results.length === 0) {
+                emptyState.classList.remove('hidden');
+                resultsSection.classList.add('hidden');
+                return;
+            }
+            
+            // 清空现有结果
+            resultsGrid.innerHTML = '';
+            
+            // 添加新结果
+            results.forEach((result, index) => {
+                const resultItem = document.createElement('div');
+                resultItem.className = 'bg-white rounded-xl shadow-md overflow-hidden card-hover';
+                resultItem.innerHTML = `
+                    <div class="aspect-square overflow-hidden">
+                        <img src="/image/${encodeURIComponent(result.image_path)}" alt="结果图片 ${index+1}" class="w-full h-full object-cover">
+                    </div>
+                    <div class="p-4">
+                        <div class="flex justify-between items-start mb-2">
+                            <h4 class="font-medium text-gray-800 truncate">图片 ${index+1}</h4>
+                            <span class="text-sm font-semibold text-secondary">${(result.similarity*100).toFixed(2)}%</span>
+                        </div>
+                        <p class="text-sm text-gray-600 line-clamp-2">${result.description}</p>
+                        <div class="mt-3 flex justify-between text-xs text-gray-500">
+                            <span>${new Date().toLocaleDateString()}</span>
+                            <span>${Math.round(result.distance * 100) / 100}</span>
+                        </div>
+                    </div>
+                `;
+                resultsGrid.appendChild(resultItem);
+            });
+            
+            // 显示结果区域
+            resultsSection.classList.remove('hidden');
+            emptyState.classList.add('hidden');
+        }
+
+        // 加载更多
+        document.getElementById('load-more-btn').addEventListener('click', function() {
+            // 这里可以实现加载更多功能
+            alert('加载更多功能待实现');
+        });
+    </script>
+</body>
+</html>

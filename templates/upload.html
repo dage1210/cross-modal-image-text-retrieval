@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片上传 - 多模态图像检索系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#10B981',
+                        dark: '#1E293B',
+                        light: '#F8FAFC'
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .gradient-bg {
+                background: linear-gradient(135deg, #3B82F6 0%, #10B981 100%);
+            }
+            .card-hover {
+                transition: all 0.3s ease;
+            }
+            .card-hover:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
+    <!-- 导航栏 -->
+    <nav class="bg-white shadow-sm py-4 px-6 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+            <i class="fa fa-picture-o text-primary text-2xl"></i>
+            <h1 class="text-xl font-bold text-dark">多模态图像检索系统</h1>
+        </div>
+        <div class="flex space-x-6">
+            <a href="/" class="text-gray-600 hover:text-primary transition-colors">
+                <i class="fa fa-search mr-1"></i>检索
+            </a>
+            <a href="/upload" class="text-primary font-medium">
+                <i class="fa fa-upload mr-1"></i>上传
+            </a>
+            <a href="/database" class="text-gray-600 hover:text-primary transition-colors">
+                <i class="fa fa-database mr-1"></i>数据库
+            </a>
+        </div>
+    </nav>
+
+    <main class="flex-grow container mx-auto px-4 py-8">
+        <div class="max-w-4xl mx-auto">
+            <div class="bg-white rounded-xl shadow-md p-6 mb-8">
+                <h2 class="text-2xl font-bold text-dark mb-6 flex items-center">
+                    <i class="fa fa-upload text-primary mr-2"></i>图片上传
+                </h2>
+                
+                <!-- 上传区域 -->
+                <div id="upload-area" class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-primary transition-colors mb-6">
+                    <i class="fa fa-cloud-upload text-4xl text-gray-400 mb-3"></i>
+                    <h3 class="text-lg font-medium text-gray-700 mb-2">点击或拖拽图片到此处</h3>
+                    <p class="text-gray-500 mb-4">支持单张或多张图片（png, jpg, jpeg, gif）</p>
+                    <p class="text-gray-500">上传后将自动生成描述并添加到检索库</p>
+                    <input type="file" id="file-input" accept="image/*" multiple class="hidden">
+                </div>
+                
+                <!-- 预览区域 -->
+                <div id="preview-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-6">
+                    <!-- 预览图将在这里显示 -->
+                </div>
+                
+                <!-- 上传按钮 -->
+                <div class="flex justify-center">
+                    <button id="upload-btn" class="gradient-bg text-white py-3 px-8 rounded-lg font-medium hover:opacity-90 transition-opacity shadow-md">
+                        <i class="fa fa-upload mr-2"></i>开始上传并处理
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 处理结果 -->
+            <div id="results-container" class="bg-white rounded-xl shadow-md p-6 hidden">
+                <h3 class="text-xl font-bold text-dark mb-4 flex items-center">
+                    <i class="fa fa-tasks text-primary mr-2"></i>处理结果
+                </h3>
+                <div id="results-list" class="space-y-3">
+                    <!-- 结果将在这里显示 -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 加载提示 -->
+    <div id="loading" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white rounded-lg p-6 flex flex-col items-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
+            <p class="text-gray-700">正在处理中，请稍候...</p>
+        </div>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('upload-area');
+        const fileInput = document.getElementById('file-input');
+        const previewContainer = document.getElementById('preview-container');
+        const uploadBtn = document.getElementById('upload-btn');
+        const loading = document.getElementById('loading');
+        const resultsContainer = document.getElementById('results-container');
+        const resultsList = document.getElementById('results-list');
+        
+        // 存储选中的文件
+        let selectedFiles = [];
+        
+        // 点击上传区域触发文件选择
+        uploadArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+        
+        // 处理文件选择
+        fileInput.addEventListener('change', (e) => {
+            const files = e.target.files;
+            if (files.length) {
+                addFilesToPreview(files);
+            }
+        });
+        
+        // 拖拽功能
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, preventDefaults, false);
+        });
+        
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, highlight, false);
+        });
+        
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, unhighlight, false);
+        });
+        
+        function highlight() {
+            uploadArea.classList.add('border-primary');
+            uploadArea.classList.add('bg-blue-50');
+        }
+        
+        function unhighlight() {
+            uploadArea.classList.remove('border-primary');
+            uploadArea.classList.remove('bg-blue-50');
+        }
+        
+        uploadArea.addEventListener('drop', handleDrop, false);
+        
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            
+            if (files.length) {
+                addFilesToPreview(files);
+            }
+        }
+        
+        // 添加文件到预览区
+        function addFilesToPreview(files) {
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                
+                // 检查是否为图片
+                if (!file.type.startsWith('image/')) {
+                    continue;
+                }
+                
+                // 检查是否已添加
+                const isDuplicate = selectedFiles.some(f => 
+                    f.name === file.name && f.size === file.size && f.lastModified === file.lastModified
+                );
+                
+                if (!isDuplicate) {
+                    selectedFiles.push(file);
+                    createPreviewItem(file);
+                }
+            }
+        }
+        
+        // 创建预览项
+        function createPreviewItem(file) {
+            const previewItem = document.createElement('div');
+            previewItem.className = 'relative group';
+            previewItem.dataset.filename = file.name;
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                previewItem.innerHTML = `
+                    <div class="relative rounded-lg overflow-hidden">
+                        <img src="${e.target.result}" alt="${file.name}" class="w-full h-24 object-cover">
+                        <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-200 flex items-center justify-center">
+                            <button class="remove-btn text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-red-500 rounded-full w-6 h-6 flex items-center justify-center text-xs" data-filename="${file.name}">
+                                ×
+                            </button>
+                        </div>
+                        <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent p-2">
+                            <p class="text-white text-xs truncate">${file.name}</p>
+                        </div>
+                    </div>
+                `;
+                
+                // 添加删除事件
+                previewItem.querySelector('.remove-btn').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const filename = e.target.dataset.filename;
+                    // 从数组中移除
+                    selectedFiles = selectedFiles.filter(f => !(f.name === filename && f.size === file.size));
+                    // 从DOM中移除
+                    previewItem.remove();
+                });
+                
+                previewContainer.appendChild(previewItem);
+            };
+            
+            reader.readAsDataURL(file);
+        }
+        
+        // 上传处理
+        uploadBtn.addEventListener('click', () => {
+            if (selectedFiles.length === 0) {
+                alert('请选择至少一张图片');
+                return;
+            }
+            
+            // 显示加载状态
+            loading.classList.remove('hidden');
+            resultsContainer.classList.add('hidden');
+            resultsList.innerHTML = '';
+            
+            // 创建FormData
+            const formData = new FormData();
+            selectedFiles.forEach(file => {
+                formData.append('images', file);
+            });
+            
+            // 发送请求
+            fetch('/upload/process', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                loading.classList.add('hidden');
+                displayResults(data.results);
+            })
+            .catch(error => {
+                loading.classList.add('hidden');
+                displayResults([{status: 'error', filename: '请求', message: `请求失败: ${error.message}`}]);
+            });
+        });
+        
+        // 显示处理结果
+        function displayResults(results) {
+            resultsContainer.classList.remove('hidden');
+            resultsList.innerHTML = '';
+            
+            results.forEach(result => {
+                const resultItem = document.createElement('div');
+                resultItem.className = `p-4 rounded-lg border ${
+                    result.status === 'success' ? 'bg-green-50 border-green-200' : 
+                    result.status === 'warning' ? 'bg-yellow-50 border-yellow-200' : 
+                    'bg-red-50 border-red-200'
+                }`;
+                
+                resultItem.innerHTML = `
+                    <div class="flex items-start">
+                        <i class="fa ${
+                            result.status === 'success' ? 'fa-check-circle text-green-500' : 
+                            result.status === 'warning' ? 'fa-exclamation-circle text-yellow-500' : 
+                            'fa-times-circle text-red-500'
+                        } text-xl mr-3 mt-0.5"></i>
+                        <div>
+                            <h4 class="font-medium text-gray-800">${result.filename || result.image}</h4>
+                            <p class="text-gray-600 text-sm mt-1">${result.message}</p>
+                            ${result.save_path ? `<p class="text-gray-500 text-xs mt-1">保存路径: ${result.save_path}</p>` : ''}
+                        </div>
+                    </div>
+                `;
+                
+                resultsList.appendChild(resultItem);
+            });
+            
+            // 清空选择
+            selectedFiles = [];
+            previewContainer.innerHTML = '';
+        }
+    </script>
+</body>
+</html>

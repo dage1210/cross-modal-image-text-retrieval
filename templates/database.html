@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>向量库查看 - 多模态图像检索系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#10B981',
+                        dark: '#1E293B',
+                        light: '#F8FAFC'
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .gradient-bg {
+                background: linear-gradient(135deg, #3B82F6 0%, #10B981 100%);
+            }
+            .card-hover {
+                transition: all 0.3s ease;
+            }
+            .card-hover:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
+    <!-- 导航栏 -->
+    <nav class="bg-white shadow-sm py-4 px-6 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+            <i class="fa fa-picture-o text-primary text-2xl"></i>
+            <h1 class="text-xl font-bold text-dark">多模态图像检索系统</h1>
+        </div>
+        <div class="flex space-x-6">
+            <a href="/" class="text-gray-600 hover:text-primary transition-colors">
+                <i class="fa fa-search mr-1"></i>检索
+            </a>
+            <a href="/upload" class="text-gray-600 hover:text-primary transition-colors">
+                <i class="fa fa-upload mr-1"></i>上传
+            </a>
+            <a href="/database" class="text-primary font-medium">
+                <i class="fa fa-database mr-1"></i>数据库
+            </a>
+        </div>
+    </nav>
+
+    <main class="flex-grow container mx-auto px-4 py-8">
+        <div class="max-w-6xl mx-auto">
+            <div class="bg-white rounded-xl shadow-md p-6 mb-8">
+                <h2 class="text-2xl font-bold text-dark mb-6 flex items-center">
+                    <i class="fa fa-database text-primary mr-2"></i>向量库查看
+                </h2>
+                
+                <!-- 数据库信息 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+                    <div class="bg-blue-50 rounded-lg p-4 border border-blue-100">
+                        <div class="text-blue-800 text-sm font-medium">图像特征数量</div>
+                        <div id="image-count" class="text-2xl font-bold text-blue-600 mt-1">-</div>
+                    </div>
+                    <div class="bg-green-50 rounded-lg p-4 border border-green-100">
+                        <div class="text-green-800 text-sm font-medium">文本特征数量</div>
+                        <div id="text-count" class="text-2xl font-bold text-green-600 mt-1">-</div>
+                    </div>
+                    <div class="bg-purple-50 rounded-lg p-4 border border-purple-100">
+                        <div class="text-purple-800 text-sm font-medium">总特征数量</div>
+                        <div id="total-count" class="text-2xl font-bold text-purple-600 mt-1">-</div>
+                    </div>
+                    <div class="bg-yellow-50 rounded-lg p-4 border border-yellow-100">
+                        <div class="text-yellow-800 text-sm font-medium">数据库大小</div>
+                        <div id="db-size" class="text-2xl font-bold text-yellow-600 mt-1">-</div>
+                    </div>
+                    <div class="bg-indigo-50 rounded-lg p-4 border border-indigo-100">
+                        <div class="text-indigo-800 text-sm font-medium">向量库类型</div>
+                        <div id="db-type" class="text-2xl font-bold text-indigo-600 mt-1">-</div>
+                    </div>
+                </div>
+                
+                <!-- 搜索框 -->
+                <div class="flex flex-col sm:flex-row gap-3 mb-6">
+                    <div class="flex-grow">
+                        <input type="text" id="filename-search" placeholder="输入文件名搜索..." 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                    </div>
+                    <div class="flex gap-2">
+                        <button id="search-btn" class="bg-primary text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors">
+                            <i class="fa fa-search mr-1"></i>搜索
+                        </button>
+                        <button id="reset-btn" class="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 transition-colors">
+                            <i class="fa fa-refresh mr-1"></i>重置
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 项目列表 -->
+            <div id="items-container" class="space-y-6">
+                <!-- 项目将在这里显示 -->
+            </div>
+            
+            <!-- 分页 -->
+            <div id="pagination" class="flex justify-center items-center mt-8 space-x-2 hidden">
+                <button id="prev-page" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <i class="fa fa-chevron-left"></i>
+                </button>
+                <span id="page-info" class="text-gray-600"></span>
+                <button id="next-page" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <i class="fa fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- 加载提示 -->
+    <div id="loading" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white rounded-lg p-6 flex flex-col items-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
+            <p class="text-gray-700">正在加载中，请稍候...</p>
+        </div>
+    </div>
+
+    <script>
+        let currentPage = 0;
+        const itemsPerPage = 10;
+        
+        // 页面加载时获取数据库信息
+        document.addEventListener('DOMContentLoaded', () => {
+            loadDatabaseInfo();
+            loadItems();
+        });
+        
+        // 加载数据库信息
+        function loadDatabaseInfo() {
+            fetch('/database/info')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('image-count').textContent = data.image_count;
+                    document.getElementById('text-count').textContent = data.text_count;
+                    document.getElementById('total-count').textContent = data.total_count;
+                    document.getElementById('db-size').textContent = data.db_size;
+                    document.getElementById('db-type').textContent = data.db_type;
+                })
+                .catch(error => {
+                    console.error('加载数据库信息失败:', error);
+                });
+        }
+        
+        // 加载项目列表
+        function loadItems(offset = 0) {
+            showLoading();
+            fetch(`/database/items?offset=${offset}&limit=${itemsPerPage}`)
+                .then(response => response.json())
+                .then(data => {
+                    hideLoading();
+                    displayItems(data);
+                    updatePagination(offset);
+                })
+                .catch(error => {
+                    hideLoading();
+                    console.error('加载项目列表失败:', error);
+                });
+        }
+        
+        // 搜索项目
+        function searchItems(filename) {
+            if (!filename) {
+                loadItems();
+                return;
+            }
+            
+            showLoading();
+            fetch(`/database/search?filename=${encodeURIComponent(filename)}`)
+                .then(response => response.json())
+                .then(data => {
+                    hideLoading();
+                    displayItems(data);
+                    document.getElementById('pagination').classList.add('hidden');
+                })
+                .catch(error => {
+                    hideLoading();
+                    console.error('搜索项目失败:', error);
+                });
+        }
+        
+        // 显示项目列表
+        function displayItems(items) {
+            const container = document.getElementById('items-container');
+            
+            if (!items.length) {
+                container.innerHTML = `
+                    <div class="bg-white rounded-xl shadow-md p-12 text-center">
+                        <i class="fa fa-inbox text-4xl text-gray-300 mb-4"></i>
+                        <h3 class="text-xl font-medium text-gray-600 mb-2">没有找到匹配的项目</h3>
+                        <p class="text-gray-500">请尝试其他搜索关键词或上传更多图片</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = items.map((item, index) => `
+                <div class="bg-white rounded-xl shadow-md overflow-hidden card-hover">
+                    <div class="p-6">
+                        <div class="flex flex-col md:flex-row gap-6">
+                            <div class="flex-shrink-0">
+                                <img src="/image/${encodeURIComponent(item.image_path)}" 
+                                     alt="${getFilenameFromPath(item.image_path)}" 
+                                     class="w-40 h-40 object-cover rounded-lg border border-gray-200">
+                            </div>
+                            <div class="flex-grow">
+                                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                                    <h3 class="text-lg font-bold text-dark">${getFilenameFromPath(item.image_path)}</h3>
+                                    <span class="text-xs font-mono bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                                        ID: ${item.id.substring(0, 8)}...
+                                    </span>
+                                </div>
+                                
+                                <div class="mb-4">
+                                    <h4 class="font-medium text-gray-700 mb-2 flex items-center">
+                                        <i class="fa fa-image text-primary mr-2"></i>图像描述
+                                    </h4>
+                                    <div class="text-gray-600 bg-gray-50 p-3 rounded-lg">
+                                        ${item.description || '无描述'}
+                                    </div>
+                                </div>
+                                
+                                {# <div>
+                                    <h4 class="font-medium text-gray-700 mb-2 flex items-center">
+                                        <i class="fa fa-file-text-o text-primary mr-2"></i>文本描述
+                                    </h4>
+                                    <div class="text-gray-600 bg-gray-50 p-3 rounded-lg">
+                                        ${item.text_description || '无描述'}
+                                    </div>
+                                </div> #}
+                                
+                                <div class="mt-4 pt-4 border-t border-gray-100">
+                                    <p class="text-xs text-gray-500 truncate">
+                                        <i class="fa fa-folder-o mr-1"></i>路径: ${item.image_path}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // 从路径中提取文件名
+        function getFilenameFromPath(path) {
+            return path.split(/[\\\\/]/).pop();
+        }
+        
+        // 更新分页控件
+        function updatePagination(offset) {
+            const pagination = document.getElementById('pagination');
+            const pageInfo = document.getElementById('page-info');
+            
+            // 简化处理，实际应根据是否有更多数据判断
+            const hasPrev = offset > 0;
+            const hasNext = true;
+            
+            pagination.classList.remove('hidden');
+            pageInfo.textContent = `第 ${Math.floor(offset/itemsPerPage) + 1} 页`;
+            
+            document.getElementById('prev-page').disabled = !hasPrev;
+            document.getElementById('next-page').disabled = !hasNext;
+            
+            document.getElementById('prev-page').onclick = () => {
+                if (offset >= itemsPerPage) {
+                    loadItems(offset - itemsPerPage);
+                }
+            };
+            
+            document.getElementById('next-page').onclick = () => {
+                loadItems(offset + itemsPerPage);
+            };
+        }
+        
+        // 工具函数
+        function showLoading() { 
+            document.getElementById('loading').classList.remove('hidden'); 
+        }
+        function hideLoading() { 
+            document.getElementById('loading').classList.add('hidden'); 
+        }
+        
+        // 搜索按钮事件
+        document.getElementById('search-btn').addEventListener('click', () => {
+            const filename = document.getElementById('filename-search').value.trim();
+            searchItems(filename);
+        });
+        
+        // 重置按钮事件
+        document.getElementById('reset-btn').addEventListener('click', () => {
+            document.getElementById('filename-search').value = '';
+            loadItems();
+        });
+        
+        // 回车搜索
+        document.getElementById('filename-search').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const filename = document.getElementById('filename-search').value.trim();
+                searchItems(filename);
+            }
+        });
+    </script>
+</body>
+</html>
